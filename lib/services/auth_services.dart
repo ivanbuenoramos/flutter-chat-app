@@ -23,11 +23,11 @@ class AuthService with ChangeNotifier{
   }
 
   //Getters del token de forma estatica
-  static Future<String?> getToken() async {
-    final _storage = const FlutterSecureStorage();
+  static Future<String> getToken() async {
+    final _storage = new FlutterSecureStorage();
     final token = await _storage.read(key: 'token');
 
-    return token;
+    return token!;
   }
 
   static Future<void> deleteToken() async {
@@ -42,7 +42,7 @@ class AuthService with ChangeNotifier{
       'email': email,
       'password': password,
     };
-    final uri = Uri.parse('${Enviroment.apiUrl}/login');
+    final uri = Uri.parse('${Environment.apiUrl}/login');
     final resp = await http.post(uri,
       body: jsonEncode(data),
       headers: {'Content-Type' :'application/json'}
@@ -68,7 +68,7 @@ class AuthService with ChangeNotifier{
       'email': email,
       'password': password,
     };
-    final uri = Uri.parse('${Enviroment.apiUrl}/login/new');
+    final uri = Uri.parse('${Environment.apiUrl}/login/new');
     final resp = await http.post(uri,
       body: jsonEncode(data),
       headers: {'Content-Type' :'application/json'}
@@ -93,7 +93,7 @@ class AuthService with ChangeNotifier{
   Future<bool> isLoggedIn() async {
     final token = await _storage.read(key:'token') ?? '';
     
-    final uri = Uri.parse('${Enviroment.apiUrl}/login/renew');
+    final uri = Uri.parse('${Environment.apiUrl}/login/renew');
     final resp = await http.get(uri,
       headers: {
         'Content-Type': 'application/json',

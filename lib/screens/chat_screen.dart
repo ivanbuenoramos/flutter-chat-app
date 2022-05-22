@@ -2,9 +2,14 @@
 
 import 'dart:io';
 
-import 'package:chat_app/widgets/chat_message.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:chat_app/models/mensajes_response.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+
+import 'package:provider/provider.dart';
+
+import '../services/services.dart';
+import '../widgets/chat_message.dart';
 
 class ChatScreen extends StatefulWidget {
    
@@ -19,52 +24,127 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final _textController = TextEditingController();
   final _focusNode = FocusNode();
 
+  late ChatService chatService;
+  late SocketService socketService;
+  late AuthService authService;
+
+  List<ChatMessage> _message = [];
+
   final List<ChatMessage> _messages = [];
 
   bool _estaEscribiendo = false;
 
   @override
+  void initState() {
+    super.initState();
+    chatService = Provider.of<ChatService>(context, listen: false);
+    socketService = Provider.of<SocketService>(context, listen: false);
+    authService = Provider.of<AuthService>(context, listen: false);
+
+    socketService.socket.on('mensaje-personal', _escucharMensaje);
+
+    _cargarHistorial(chatService.usuarioPara.uid);
+
+  }
+    
+  void _cargarHistorial(String usuarioID) async {
+    List<Mensaje> chat = await chatService.getChat(usuarioID);
+
+    final history = chat.map((m) => new ChatMessage(
+      texto: m.mensaje,
+      uid: m.de,
+      animationController: new AnimationController(vsync: this, duration: Duration(milliseconds: 0))..forward(),
+    ));
+    setState(() {
+      _messages.insertAll(0, history);
+    });
+  }
+
+  void _escucharMensaje(dynamic payload) {
+    
+    ChatMessage message = new ChatMessage(
+      texto: payload['mensaje'],
+      uid: payload['de'],
+      animationController: AnimationController(vsync: this, duration: Duration(milliseconds: 300)),
+    );
+
+    setState(() {
+      _messages.insert(0, message);
+    });
+
+    message.animationController.forward();
+  }
+
+  @override
   Widget build(BuildContext context) {
+
+    final usuarioPara = chatService.usuarioPara;
+
     return Scaffold(
       appBar: AppBar(
-        elevation: 1,
+        
+        elevation: 0.5,
         centerTitle: true,
         backgroundColor: Colors.white,
-        title: Column(
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
+
             CircleAvatar(
-              child: const Text('Te', style: TextStyle(fontSize: 12)),
+              child: Text(usuarioPara.nombre.substring(0, 2), style: const TextStyle(fontSize: 14)),
               backgroundColor: Colors.blue[100],
-              maxRadius: 14,
+              radius: 20,
             ),
-            const SizedBox(height: 3),
-            const Text('Melissa Flores', style: TextStyle(color: Colors.black87, fontSize: 12)),
+
+            const SizedBox(width: 10),
+
+            (usuarioPara.online)
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(usuarioPara.nombre, style: const TextStyle(color: Colors.black87, fontSize: 17)),
+                    const Text( 'En línea', style: TextStyle(color: Colors.black38, fontSize: 13)),
+                  ],
+                )
+              : Text(usuarioPara.nombre, style: const TextStyle(color: Colors.black87, fontSize: 17)),
           ],
+        ),
+        leading: (Platform.isIOS)
+          ? CupertinoButton(
+              onPressed: (){
+                Navigator.pop(context);
+              },
+              child: const Icon(Icons.chevron_left, color: Colors.blue)
+              )
+
+          : IconButton(
+              onPressed: (){
+                Navigator.pop(context);
+              },
+              icon: const Icon(Icons.chevron_left, color: Colors.blue),
         ),
       ),
-      body: Container(
-        child: Column(
-          children: [
+      body: Column(
+        children: [
 
-            Flexible(
-              child: ListView.builder(
-                physics: const BouncingScrollPhysics(),
-                itemCount: _messages.length,
-                itemBuilder: (_, i) => _messages[i],
-                reverse: true,
-              )
-            ),
-
-            const Divider(
-              height: 1,
-            ),
-
-            Container(
-              color: Colors.white,
-              child: _inputChat(),
+          Flexible(
+            child: ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              itemCount: _messages.length,
+              itemBuilder: (_, i) => _messages[i],
+              reverse: true,
             )
-          ],
-        ),
+          ),
+
+          const Divider(
+            height: 1,
+          ),
+
+          Container(
+            color: Colors.white,
+            child: _inputChat(),
+          )
+        ],
       )
     );
   }
@@ -131,12 +211,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     if (texto.isEmpty) return;
 
-    print(texto);
     _textController.clear();
     _focusNode.requestFocus();  
 
     final newMessage = new ChatMessage(
-      uid: '123',
+      uid: authService.usuario!.uid,
       texto: texto,
       animationController: AnimationController(vsync: this, duration: const Duration(milliseconds: 400)),
     );
@@ -144,9 +223,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     newMessage.animationController.forward();
 
-    setState(() {
-      _estaEscribiendo = false;
+    setState(() { _estaEscribiendo = false; });
+
+    socketService.emit('mensaje-personal', {
+      'de': authService.usuario?.uid,
+      'para': chatService.usuarioPara.uid,
+      'mensaje': texto,
     });
+
   }
 
   @override
@@ -156,6 +240,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       message.animationController.dispose();
     }
 
+    socketService.socket.off('mensaje-personal');
     super.dispose();
   }
 }

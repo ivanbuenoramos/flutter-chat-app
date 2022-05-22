@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
 
+import '../helpers/mostrar_alerta.dart';
+
+import 'package:chat_app/services/socket_service.dart';
 import 'package:chat_app/widgets/widgets.dart';
 import 'package:chat_app/services/auth_services.dart';
-import '../helpers/mostrar_alerta.dart';
 
 
 class LoginScreen extends StatelessWidget {
@@ -52,6 +54,7 @@ class _FormState extends State<_Form> {
   Widget build(BuildContext context) {
 
     final authServices = Provider.of<AuthService>(context);
+    final socketService = Provider.of<SocketService>(context);
 
     return Container(
       margin: const EdgeInsets.only(top: 40),
@@ -82,7 +85,7 @@ class _FormState extends State<_Form> {
               final loginOk = await authServices.login(emailCtrl.text.trim(), passCtrl.text.trim());
 
               if (loginOk) {
-
+                socketService.connect();
                 Navigator.pushReplacementNamed(context, 'usuarios');
 
               } else {

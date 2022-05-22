@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import 'package:chat_app/widgets/widgets.dart';
 import 'package:chat_app/services/auth_services.dart';
 
+import '../services/socket_service.dart';
+
 class RegisterScreen extends StatelessWidget {
    
   const RegisterScreen({Key? key}) : super(key: key);
@@ -52,6 +54,7 @@ class _FormState extends State<_Form> {
   Widget build(BuildContext context) {
 
     final authServices = Provider.of<AuthService>(context);
+    final socketServices = Provider.of<SocketService>(context);
     
     return Container(
       margin: const EdgeInsets.only(top: 40),
@@ -87,6 +90,7 @@ class _FormState extends State<_Form> {
               final registerOk = await authServices.register(emailCtrl.text.trim(), passCtrl.text.trim(), nameCtrl.text.trim());
 
               if (registerOk == true) {
+                socketServices.connect();
                 Navigator.pushReplacementNamed(context, 'usuarios');
               } else {
                 mostrarAlerta(context, 'Registro incorrecto', registerOk);
